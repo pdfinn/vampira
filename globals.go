@@ -133,13 +133,13 @@ func (g *globals) iconinit(display draw.Display) {
 		g.tagcolors[frame.ColBack] = display.AllocImageMix(draw.Palebluegreen, draw.White)
 		g.tagcolors[frame.ColHigh], _ = display.AllocImage(image.Rect(0, 0, 1, 1), display.ScreenImage().Pix(), true, draw.Palegreygreen)
 		g.tagcolors[frame.ColBord], _ = display.AllocImage(image.Rect(0, 0, 1, 1), display.ScreenImage().Pix(), true, draw.Purpleblue)
-		g.tagcolors[frame.ColText] = display.Black()
-		g.tagcolors[frame.ColHText] = display.Black()
+		g.tagcolors[frame.ColText] = display.White()
+		g.tagcolors[frame.ColHText] = display.White()
 		g.textcolors[frame.ColBack] = display.AllocImageMix(draw.Paleyellow, draw.White)
 		g.textcolors[frame.ColHigh], _ = display.AllocImage(image.Rect(0, 0, 1, 1), display.ScreenImage().Pix(), true, draw.Darkyellow)
 		g.textcolors[frame.ColBord], _ = display.AllocImage(image.Rect(0, 0, 1, 1), display.ScreenImage().Pix(), true, draw.Yellowgreen)
-		g.textcolors[frame.ColText] = display.Black()
-		g.textcolors[frame.ColHText] = display.Black()
+		g.textcolors[frame.ColText] = display.White()
+		g.textcolors[frame.ColHText] = display.White()
 	}
 
 	// ...
