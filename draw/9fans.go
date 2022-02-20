@@ -38,14 +38,14 @@ const (
 	Medblue       Color = 0xFFFF6DFF
 	Nofill        = draw.Nofill
 	Notacolor     = draw.Notacolor
-	Palebluegreen Color = 0x110001FF
+	Palebluegreen Color = 0x110100FF
 	Palegreygreen = draw.Palegreygreen
 	Paleyellow    Color = 0x000013FF
 	Purpleblue    Color = 0x777738FF
 	Transparent   = draw.Transparent
-	White         = draw.Black
+	White         = draw.White
 	Yellowgreen   Color = 0x6665A8FF
-	Black         = draw.White
+	Black         = draw.Black
 
 /*	Background     Color = 0x000013FF
 	WindowControl  Color = 0xFFFF6DFF
