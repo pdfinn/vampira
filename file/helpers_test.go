@@ -6,36 +6,12 @@ import (
 	"testing"
 )
 
-type checkable interface {
-	BufferAdapter
-
-	// Return the entire backing as a string.
-	readwholefile(*testing.T) string
-
-	// Return true to enable tests of UncommittedChanges. This concept does not
-	// exist with file.Buffer.
-	commitisgermane() bool
-}
-
 type stateSummary struct {
 	HasUncommitedChanges bool
 	HasUndoableChanges   bool
 	HasRedoableChanges   bool
 	SaveableAndDirty     bool
 	filecontents         string
-}
-
-func (f *File) commitisgermane() bool { return true }
-
-func (f *File) readwholefile(t *testing.T) string {
-	t.Helper()
-	var sb strings.Builder
-
-	// Currently ReadAtRune does not return runes in the cache.
-	for i := 0; i < f.Nr(); i++ {
-		sb.WriteRune(f.ReadC(i))
-	}
-	return sb.String()
 }
 
 func (b *Buffer) commitisgermane() bool { return false }
@@ -47,8 +23,7 @@ func (b *Buffer) readwholefile(*testing.T) string {
 func check(t *testing.T, testname string, oeb *ObservableEditableBuffer, fss *stateSummary) {
 	t.Helper()
 
-	// Lets the test infrastructure call against file.Buffer or file.File.
-	f := oeb.f.(checkable)
+	f := oeb.f
 
 	if f.commitisgermane() {
 		if got, want := oeb.HasUncommitedChanges(), fss.HasUncommitedChanges; got != want {
