@@ -281,8 +281,7 @@ func (e *ObservableEditableBuffer) Load(q0 int, fd io.Reader, sethash bool) (int
 	}
 
 	runes, _, hasNulls := util.Cvttorunes(d, len(d))
-	e.f.InsertAt(q0, runes, e.seq)
-	e.inserted(q0, runes)
+	e.InsertAt(q0, runes)
 	return len(runes), hasNulls, err
 }
 
@@ -294,12 +293,24 @@ func (e *ObservableEditableBuffer) Dirty() bool {
 
 // InsertAt is a forwarding function for file.InsertAt.
 // p0 is position in runes.
-func (e *ObservableEditableBuffer) InsertAt(p0 int, s []rune) {
+func (e *ObservableEditableBuffer) InsertAt(rp0 int, rs []rune) {
+	p0 := e.f.RuneTuple(rp0)
+	s, nr := RunesToBytes(rs)
+
+	e.Insert(p0, s, nr)
+}
+
+// Insert is a forwarding function for file.Insert.
+// p0 is position in runes.
+func (e *ObservableEditableBuffer) Insert(p0 OffsetTuple, s []byte, nr int) {
 	before := e.getTagStatus()
 	defer e.notifyTagObservers(before)
 
-	e.f.InsertAt(p0, s, e.seq)
-	e.inserted(p0, s)
+	e.f.Insert(p0, s, nr, e.seq)
+	if e.seq < 1 {
+		e.f.FlattenHistory()
+	}
+	e.inserted(p0, s, nr)
 }
 
 // SetName sets the name of the backing for this file. Some backing names
@@ -337,13 +348,24 @@ func (e *ObservableEditableBuffer) Undo(isundo bool) (q0, q1 int, ok bool) {
 	return q0, q1, ok
 }
 
-// DeleteAt is a forwarding function for file.DeleteAt.
-// q0, q1 are in runes.
-func (e *ObservableEditableBuffer) DeleteAt(q0, q1 int) {
+// DeleteAt is a forwarding function for buffer.DeleteAt.
+// rp0, rp1 are in runes.
+func (e *ObservableEditableBuffer) DeleteAt(rp0, rp1 int) {
+	p0 := e.f.RuneTuple(rp0)
+	p1 := e.f.RuneTuple(rp1)
+
+	e.Delete(p0, p1)
+}
+
+// Delete is a forwarding function for buffer.Delete.
+func (e *ObservableEditableBuffer) Delete(q0, q1 OffsetTuple) {
 	before := e.getTagStatus()
 	defer e.notifyTagObservers(before)
 
-	e.f.DeleteAt(q0, q1, e.seq)
+	e.f.Delete(q0, q1, e.seq)
+	if e.seq < 1 {
+		e.f.FlattenHistory()
+	}
 	e.deleted(q0, q1)
 }
 
@@ -402,17 +424,17 @@ func (e *ObservableEditableBuffer) RedoSeq() int {
 // inserted is a package-only entry point from the underlying
 // buffer (file.Buffer or file.File) to run the registered observers
 // on a change in the buffer.
-func (e *ObservableEditableBuffer) inserted(q0 int, r []rune) {
+func (e *ObservableEditableBuffer) inserted(q0 OffsetTuple, b []byte, nr int) {
 	e.treatasclean = false
 	for observer := range e.observers {
-		observer.Inserted(q0, r)
+		observer.Inserted(q0, b, nr)
 	}
 }
 
 // deleted is a package-only entry point from the underlying
 // buffer (file.Buffer or file.File) to run the registered observers
 // on a change in the buffer.
-func (e *ObservableEditableBuffer) deleted(q0 int, q1 int) {
+func (e *ObservableEditableBuffer) deleted(q0, q1 OffsetTuple) {
 	e.treatasclean = false
 	for observer := range e.observers {
 		observer.Deleted(q0, q1)
@@ -428,10 +450,7 @@ func (e *ObservableEditableBuffer) Commit() {
 // InsertAtWithoutCommit is a forwarding function for file.InsertAtWithoutCommit.
 // forwards to InsertAt for file.Buffer.
 func (e *ObservableEditableBuffer) InsertAtWithoutCommit(p0 int, s []rune) {
-	before := e.getTagStatus()
-	defer e.notifyTagObservers(before)
-	e.f.InsertAtWithoutCommit(p0, s, e.seq)
-	e.inserted(p0, s)
+	e.InsertAt(p0, s)
 }
 
 // IsDirOrScratch returns true if the File has a synthetic backing of
@@ -508,4 +527,24 @@ func (e *ObservableEditableBuffer) SetSeq(seq int) {
 // SetPutseq is a setter for file.putseq for use in tests.
 func (e *ObservableEditableBuffer) SetPutseq(putseq int) {
 	e.putseq = putseq
+}
+
+// RuneTuple is a forwarding function.
+func (e *ObservableEditableBuffer) RuneTuple(q int) OffsetTuple {
+	return e.f.RuneTuple(q)
+}
+
+// ByteTuple is a forwarding function.
+func (e *ObservableEditableBuffer) ByteTuple(q int) OffsetTuple {
+	return e.f.ByteTuple(q)
+}
+
+// End is a forwarding function.
+func (e *ObservableEditableBuffer) End() OffsetTuple {
+	return e.f.End()
+}
+
+// MakeBufferCursor is a forwarding function.
+func (e *ObservableEditableBuffer) MakeBufferCursor(p0, p1 OffsetTuple) *BufferCursor {
+	return MakeBufferCursor(e.f, p0, p1)
 }

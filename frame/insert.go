@@ -8,6 +8,12 @@ import (
 )
 
 func (frame *frameimpl) addifnonempty(box *frbox, inby []byte) *frbox {
+	if box == nil {
+		return &frbox{
+			Ptr: inby,
+		}
+	}
+
 	if len(box.Ptr) > 0 {
 		box.Wid = frame.font.BytesWidth(box.Ptr)
 		frame.box = append(frame.box, box)
@@ -15,7 +21,7 @@ func (frame *frameimpl) addifnonempty(box *frbox, inby []byte) *frbox {
 			Ptr: inby,
 		}
 	}
-	return box
+	return nil
 }
 
 // bxscan divides inby into single-line, nl and tab boxes. bxscan assumes that
@@ -40,14 +46,13 @@ func (f *frameimpl) bxscan(inby []byte, ppt *image.Point) (image.Point, *frameim
 	// TODO(rjk): There are no boxes allocated?
 	// log.Println("boxes are allocated?", "nalloc", f.nalloc, "box len", len(frame.box))
 
-	wipbox := &frbox{
-		Ptr: inby[0:0],
-	}
+	var wipbox *frbox
 
 	for i := 0; i < len(inby); frame.nchars++ {
 		if nl > f.maxlines {
 			break
 		}
+
 		switch inby[i] {
 		case '\t':
 			wipbox = frame.addifnonempty(wipbox, inby[i+1:i+1])
@@ -74,7 +79,13 @@ func (f *frameimpl) bxscan(inby []byte, ppt *image.Point) (image.Point, *frameim
 			nl++
 		default:
 			_, n := utf8.DecodeRune(inby[i:])
-			wipbox.Ptr = wipbox.Ptr[:len(wipbox.Ptr)+n]
+			if wipbox == nil {
+				wipbox = &frbox{
+					Ptr: inby[i : i+n],
+				}
+			} else {
+				wipbox.Ptr = wipbox.Ptr[:len(wipbox.Ptr)+n]
+			}
 			wipbox.Nrune++
 			i += n
 		}
@@ -132,7 +143,7 @@ func (f *frameimpl) insertimpl(r []rune, p0 int) bool {
 }
 
 func (f *frameimpl) insertbyteimpl(inby []byte, p0 int) bool {
-	// log.Printf("frame.Insert. Start: %s", string(r))
+	// log.Printf("frame.Insert. Start: %q", string(inby))
 	// defer log.Println("frame.Insert end")
 	//	f.Logboxes("at very start of insert")
 	f.validateboxmodel("Frame.Insert Start p0=%d, «%s»", p0, string(inby))

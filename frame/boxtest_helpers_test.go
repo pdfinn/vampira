@@ -19,18 +19,16 @@ func makeBox(s string) *frbox {
 	switch s {
 	case "\t":
 		return &frbox{
-			Wid:    5000,
+			Wid:    10,
 			Nrune:  -1,
-			Ptr:    []byte(s),
 			Bc:     r,
 			Minwid: 10,
 		}
 
 	case "\n":
 		return &frbox{
-			Wid:    5000,
+			Wid:    10000,
 			Nrune:  -1,
-			Ptr:    []byte(s),
 			Bc:     r,
 			Minwid: 0,
 		}
@@ -84,7 +82,7 @@ func expectedboxesequal(t *testing.T, prefix, name string, i int, frame *frameim
 		case want.Ptr == nil && got.Ptr != nil:
 			t.Errorf("%s-%s: result box [%d] mismatch: got %#v (%s) want %#v (nil)", prefix, name, i, got, string(got.Ptr), want)
 		case want.Ptr != nil && got.Ptr != nil:
-			t.Errorf("%s-%s: result box [%d] mismatch: got %#v (%s) want %#v (%s)", prefix, name, i, got, string(got.Ptr), want, string(want.Ptr))
+			t.Errorf("%s-%s: result box [%d] mismatch: got %#v (%q) want %#v (%q)", prefix, name, i, got, string(got.Ptr), want, string(want.Ptr))
 		}
 	}
 }

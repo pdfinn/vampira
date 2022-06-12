@@ -3,22 +3,25 @@ package file
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io"
 	"strings"
 )
 
-func NewTypeBuffer(inputrunes []rune, oeb *ObservableEditableBuffer) *Buffer {
-	// TODO(rjk): Figure out how to plumb in the oeb object to setup Undo
-	// observer callbacks.
-
+// RunesToBytes converts and returns the []byte representation and number of runes.
+// TODO(rjk): Replace this with util.Cvttorunes
+func RunesToBytes(inputrunes []rune) ([]byte, int) {
 	// TODO(rjk): We can do better.
 	buffy := new(bytes.Buffer)
 	buffy.Grow(len(inputrunes))
 	for _, r := range inputrunes {
 		buffy.WriteRune(r)
 	}
+	return buffy.Bytes(), len(inputrunes)
+}
 
-	nb := NewBuffer(buffy.Bytes(), len(inputrunes))
+func NewTypeBuffer(inputrunes []rune, oeb *ObservableEditableBuffer) *Buffer {
+	nb := NewBuffer(RunesToBytes(inputrunes))
 	nb.oeb = oeb
 	return nb
 }
@@ -29,46 +32,11 @@ func (b *Buffer) Commit(seq int) {
 	// NOP
 }
 
-// DeleteAt removes the rune range [p0,p1) from File.
-func (b *Buffer) DeleteAt(rp0, rp1, seq int) {
-	p0 := b.RuneTuple(rp0)
-	p1 := b.RuneTuple(rp1)
-
-	b.Delete(p0, p1, seq)
-
-	if seq < 1 {
-		b.FlattenHistory()
-	}
-}
-
-// InsertAt inserts s runes at rune address p0.
-func (b *Buffer) InsertAt(rp0 int, rs []rune, seq int) {
-	p0 := b.RuneTuple(rp0)
-
-	buffy := new(bytes.Buffer)
-	for _, r := range rs {
-		// TODO(rjk): Some error handling might be needed here?
-		buffy.WriteRune(r)
-	}
-	s := buffy.Bytes()
-
-	b.Insert(p0, s, len(rs), seq)
-
-	if seq < 1 {
-		b.FlattenHistory()
-	}
-}
-
 // ReadC reads a single rune from the File.
 // TODO(rjk): Implement RuneReader
 func (b *Buffer) ReadC(q int) rune {
 	p0 := b.RuneTuple(q)
-
-	sr := io.NewSectionReader(b, int64(p0.B), 8)
-	bsr := bufio.NewReaderSize(sr, 8)
-
-	// TODO(rjk): Add some error checking?
-	r, _, _ := bsr.ReadRune()
+	r, _, _ := b.ReadRuneAt(p0)
 	return r
 }
 
@@ -89,10 +57,6 @@ func (b *Buffer) IndexRune(r rune) int {
 		}
 	}
 	return -1
-}
-
-func (b *Buffer) InsertAtWithoutCommit(p0 int, s []rune, seq int) {
-	b.InsertAt(p0, s, seq)
 }
 
 // Mark sets an Undo point and and discards Redo records. Call this at
@@ -135,4 +99,19 @@ func (b *Buffer) String() string {
 	// TODO(rjk): Add some error checking.
 	io.Copy(buffy, sr)
 	return buffy.String()
+}
+
+// viewedState returns a string representation of a Buffer b good for debugging.
+func (b *Buffer) viewedState() string {
+	sb := new(strings.Builder)
+
+	fmt.Fprintf(sb, "Buffer (vws: %v, vwl: %v) {\n", b.vws, b.vwl)
+	for p := b.begin; p != nil; p = p.next {
+		if p == b.viewed {
+			sb.WriteString("->")
+		}
+		fmt.Fprintf(sb, "	id: %d len: %d nr: %d data: %q\n", p.id, p.len(), p.nr, string(p.data))
+	}
+	sb.WriteString("}")
+	return sb.String()
 }

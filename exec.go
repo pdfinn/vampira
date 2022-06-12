@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha1"
 	"fmt"
 	"image"
@@ -292,7 +293,7 @@ func del(et *Text, _0 *Text, _1 *Text, flag1 bool, _2 bool, _3 string) {
 
 func cut(et *Text, t *Text, _ *Text, dosnarf bool, docut bool, _ string) {
 	var (
-		q0, q1, n, c int
+		q0, q1, c int
 	)
 	// if not executing a mouse chord (et != t) and snarfing (dosnarf)
 	// and executed Cut or Snarf in window tag (et.w != nil),
@@ -329,20 +330,11 @@ func cut(et *Text, t *Text, _ *Text, dosnarf bool, docut bool, _ string) {
 	if dosnarf {
 		q0 = t.q0
 		q1 = t.q1
-		global.snarfbuf = make([]byte, 0)
-		// TODO(rjk): Don't make bytes into runes.
-		r := make([]rune, RBUFSIZE)
-		for q0 < q1 {
-			n = q1 - q0
-			if n > RBUFSIZE {
-				n = RBUFSIZE
-			}
-			t.file.Read(q0, r[:n])
-			// TODO(rjk): ick. Zero-conversion.
-			sb := []byte(string(r))
-			global.snarfbuf = append(global.snarfbuf, sb...)
-			q0 += n
-		}
+
+		reader := t.file.Reader(q0, q1)
+		buffy := new(bytes.Buffer)
+		io.Copy(buffy, reader)
+		global.snarfbuf = buffy.Bytes()
 		acmeputsnarf()
 	}
 	if docut {
@@ -850,6 +842,19 @@ func runwaittask(c *Command, cpid chan *os.Process) {
 
 var errEmptyCmd = fmt.Errorf("empty command")
 
+func setupenvvars(filename, argaddr string, winid int) []string {
+	env := os.Environ()
+	env = append(env, fmt.Sprintf("winid=%d", winid))
+	if filename != "" {
+		env = append(env, fmt.Sprintf("%%=%v", filename))
+		env = append(env, fmt.Sprintf("samfile=%v", filename))
+	}
+	if argaddr != "" {
+		env = append(env, fmt.Sprintf("acmeaddr=%v", argaddr))
+	}
+	return env
+}
+
 // runproc. Something with the running of external processes. Executes
 // asynchronously.
 // TODO(rjk): Must lock win on mutation.
@@ -894,7 +899,9 @@ func runproc(win *Window, s string, dir string, newns bool, argaddr string, arg 
 			shell = "rc"
 		}
 		rcarg = []string{shell, "-c", t}
+
 		cmd := exec.Command(rcarg[0], rcarg[1:]...)
+		cmd.Env = setupenvvars(filename, argaddr, winid)
 		cmd.Dir = dir
 		cmd.Stdin = sin
 		cmd.Stdout = sout
@@ -927,7 +934,6 @@ func runproc(win *Window, s string, dir string, newns bool, argaddr string, arg 
 	}
 	c.iseditcommand = iseditcmd
 	c.text = s
-	env := os.Environ()
 	if newns {
 		if win != nil {
 			// Access possibly mutable Window state inside a lock.
@@ -945,12 +951,6 @@ func runproc(win *Window, s string, dir string, newns bool, argaddr string, arg 
 		}
 		// 	rfork(RFNAMEG|RFENVG|RFFDG|RFNOTEG); TODO(flux): I'm sure these settings are important
 
-		env = append(env, fmt.Sprintf("winid=%d", winid))
-
-		if filename != "" {
-			env = append(env, fmt.Sprintf("%%=%v", filename))
-			env = append(env, fmt.Sprintf("samfile=%v", filename))
-		}
 		var fs *client.Fsys
 		var err error
 		c.md, fs, err = fsysmount(dir, incl)
@@ -993,9 +993,6 @@ func runproc(win *Window, s string, dir string, newns bool, argaddr string, arg 
 		win.lk.Unlock()
 	}
 
-	if argaddr != "" {
-		env = append(env, fmt.Sprintf("acmeaddr=%v", argaddr))
-	}
 	if global.acmeshell != "" {
 		return Hard()
 	}
@@ -1024,7 +1021,7 @@ func runproc(win *Window, s string, dir string, newns bool, argaddr string, arg 
 	cmd.Stdin = sin
 	cmd.Stdout = sout
 	cmd.Stderr = serr
-	cmd.Env = env
+	cmd.Env = setupenvvars(filename, argaddr, winid)
 	err := cmd.Start()
 	if err != nil {
 		Fail()
