@@ -23,3 +23,7 @@ _testmain.go
 *.test
 *.prof
 edwood
+vampira
+.idea/.name
+.idea/aws.xml
+.idea/vampira.iml
